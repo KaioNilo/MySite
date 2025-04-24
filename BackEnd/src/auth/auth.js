@@ -6,41 +6,43 @@ import { Mongo } from "../database/mongo.js";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 
-const collectionName = "users";
+const collectionName = 'users';
 
-//validação de email e senha
+//validação de email e senha para login
 passport.use(new LocalStrategy ( { usernameField: "email" }, async (email, password, callback) => {
     
     const user =  await Mongo.db
-        .collection(collectionName)
-        .findOne({ email: email });
+    
+    //busca do email do user
+    .collection(collectionName)
+    .findOne({ email: email });
 
-        if (!user) {
+    if (!user) {
+        return callback(null, false);
+    };
+
+    //Salvar a senha e a sua chave de descriptação
+    const saltBuffer = user.salt.buffer
+
+    //validação da senha
+    crypto.pbkdf2(password, saltBuffer, 310000, 16, 'sha256', (err, hashedPassword) => {
+        if (err) {
             return callback(null, false);
         };
 
-        //campo para salvar a chave de descriptação da senha junto com o user
-        const saltBuffer = user.saltBuffer
+        //como o mongodb salva para guardar a criptação
+        const userPasswordBuffer = Buffer.from(user.password.buffer);
 
-        //validação da senha
-        crypto.pbkdf2(password, saltBuffer, 310000, 16, 'sha256', (error, hashedPassword) => {
-            if (error) {
-                return callback(null, false);
-            };
+        //decriptação
+        if (!crypto.timingSafeEqual(userPasswordBuffer, hashedPassword)) {
+            return callback(null, false);
+        }
+        
+        //criando segurança da senha e do salt
+        const { password, salt, ...rest} = user;
 
-            //como o mongodb salva para guardar a criptação
-            const userPasswordBuffer = Buffer.from(user.password.buffer);
-
-            //decriptação
-            if (!crypto.timingSafeEqual(userPasswordBuffer, hashedPassword)) {
-                return callback(null, false);
-            }
-            
-            //criando segurança da senha e do salt
-            const { password, salt, ...rest} = user;
-
-            return callback(null, { ...rest });
-        })
+        return callback(null, rest);
+    })
 
 }));
 
@@ -53,6 +55,7 @@ authRouter.post('/signup', async (req, res) => {
     .collection(collectionName)    
     .findOne({ email: req.body.email });
 
+    //caso exista, retornar erro
     if (checkUser) {
         return res.status(500).send({
             success: false,
@@ -61,17 +64,19 @@ authRouter.post('/signup', async (req, res) => {
                 text: "User already exists"
             }
         });
-    }
+    };
 
+
+    //não existe, faz a criptografia da senha
     const salt = crypto.randomBytes(16);
-    crypto.pbkdf2(req.body.password, salt, 310000, 16, 'sha256', async (error, hashedPassword) => {
-        if (error) {
+    crypto.pbkdf2(req.body.password, salt, 310000, 16, 'sha256', async (err, hashedPassword) => {
+        if (err) {
             return res.status(500).send({
                 success: false,
                 statusCode: 500,
                 body: {
                     text: "Error during password encryption",
-                    error: error
+                    err
                 }
             });
         }
@@ -80,12 +85,9 @@ authRouter.post('/signup', async (req, res) => {
         const result = await Mongo.db
         .collection(collectionName)
         .insertOne({
-            name: req.body.name,
             email: req.body.email,
-            password: {
-                buffer: hashedPassword,
-                saltBuffer: salt
-            }
+            password: hashedPassword,
+            salt
         });
 
         //respondendo o "insertedId" do mongodb (resposta que a plataforma dá quando cria um user)
@@ -97,7 +99,7 @@ authRouter.post('/signup', async (req, res) => {
             //criando o token
             const token = jwt.sign(user, 'secret');
 
-            return res.status(200).send({
+            return res.send({
                 success: true,
                 statusCode: 200,
                 body: {
@@ -111,5 +113,46 @@ authRouter.post('/signup', async (req, res) => {
 
     })
 });
+
+//rota de login
+authRouter.post('/login', (req, res) => {
+    passport.authenticate('local', (err, user) => {
+        if (err) {
+            return res.send({
+                success: false,
+                statusCode: 500,
+                body: {
+                    text: "Error during login",
+                    err
+                }
+            });
+        }
+
+        if (!user) {
+            return res.status(400).send({
+                success: false,
+                statusCode: 400,
+                body: {
+                    text: "User not found"
+                }
+            });
+        }
+
+        const token = jwt.sign(user, 'secret');
+
+        return res.status(200).send({
+            success: true,
+            statusCode: 200,
+            body: {
+                text: "User logged",
+                token,
+                user
+            }
+        });
+
+    }) (req, res);
+})
+
+
 
 export default authRouter

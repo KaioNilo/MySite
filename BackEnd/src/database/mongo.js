@@ -1,9 +1,11 @@
+//biblioteca do MongoDB
 import { MongoClient } from 'mongodb';
 
 //exportando o modo de conexão
 export const Mongo = {
     async connect({mongoConnectionString, mongodbName}) {
-        //função de importação e exportação
+        //Função de importação e exportação
+        //Função: tentar (try) ... se der erro, pegar (catch)
         try {
             const client = new MongoClient(mongoConnectionString);
 
@@ -12,7 +14,7 @@ export const Mongo = {
             //constante para indicar o db
             const db = client.db(mongodbName);
 
-            //características dos objs dentro do db
+            //após a conexão, adc esses elementos
             this.client = client;
             this.db = db;
 
@@ -22,8 +24,6 @@ export const Mongo = {
         } catch (error) {
             return { text: 'Error during mongo connection', error };
         }
-
-
 
     }
 }
