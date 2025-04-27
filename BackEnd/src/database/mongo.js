@@ -14,13 +14,13 @@ export const Mongo = {
             //constante para indicar o db
             const db = client.db(mongodbName);
 
-            //após a conexão, adc esses elementos
+            //após a conexão com o db, o obj terá os elementos
             this.client = client;
             this.db = db;
 
             //mensagem de sucesso
             return { text: 'Connected to mongo', error: null };
-
+ 
         } catch (error) {
             return { text: 'Error during mongo connection', error };
         }

@@ -4,7 +4,7 @@ import { Mongo } from "./database/mongo.js";
 import { config } from "dotenv";
 import authRouter from "./auth/auth.js";
 
-//rodando o dotenv
+//rodando o dotenv (dependecia para criar variáveis de ambiente)
 config();
 
 async function main() {
