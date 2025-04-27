@@ -116,6 +116,7 @@ authRouter.post('/signup', async (req, res) => {
     })
 });
 
+
 //rota de login
 authRouter.post('/login', (req, res) => {
     passport.authenticate('local', (error, user) => {
