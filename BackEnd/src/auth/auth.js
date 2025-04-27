@@ -1,3 +1,4 @@
+
 import express from "express";
 import passport from "passport";
 import LocalStrategy from "passport-local";
@@ -15,7 +16,7 @@ passport.use(new LocalStrategy ( { usernameField: "email" }, async (email, passw
     
     //busca do email do user
     .collection(collectionName)
-    .findOne({ email: email });
+    .findOne({ email: email })
 
     if (!user) {
         return callback(null, false);
@@ -25,8 +26,8 @@ passport.use(new LocalStrategy ( { usernameField: "email" }, async (email, passw
     const saltBuffer = user.salt.buffer
 
     //validação da senha
-    crypto.pbkdf2(password, saltBuffer, 310000, 16, 'sha256', (err, hashedPassword) => {
-        if (err) {
+    crypto.pbkdf2(password, saltBuffer, 310000, 16, 'sha256', (error, hashedPassword) => {
+        if (error) {
             return callback(null, false);
         };
 
@@ -50,6 +51,7 @@ passport.use(new LocalStrategy ( { usernameField: "email" }, async (email, passw
 const authRouter = express.Router();
 
 authRouter.post('/signup', async (req, res) => {
+    
     //verificação se o usuário existe
     const checkUser = await Mongo.db    
     .collection(collectionName)    
@@ -69,8 +71,8 @@ authRouter.post('/signup', async (req, res) => {
 
     //não existe, faz a criptografia da senha
     const salt = crypto.randomBytes(16);
-    crypto.pbkdf2(req.body.password, salt, 310000, 16, 'sha256', async (err, hashedPassword) => {
-        if (err) {
+    crypto.pbkdf2(req.body.password, salt, 310000, 16, 'sha256', async (error, hashedPassword) => {
+        if (error) {
             return res.status(500).send({
                 success: false,
                 statusCode: 500,
@@ -114,11 +116,15 @@ authRouter.post('/signup', async (req, res) => {
     })
 });
 
+export default authRouter
+
+
 //rota de login
 authRouter.post('/login', (req, res) => {
     passport.authenticate('local', (err, user) => {
+      
         if (err) {
-            return res.send({
+            return res.status(500).send({
                 success: false,
                 statusCode: 500,
                 body: {
@@ -138,13 +144,14 @@ authRouter.post('/login', (req, res) => {
             });
         }
 
+        //criando o token (para verfificar os dados que foram criptografados)
         const token = jwt.sign(user, 'secret');
 
         return res.status(200).send({
             success: true,
             statusCode: 200,
             body: {
-                text: "User logged",
+                text: "User logged in successfully",
                 token,
                 user
             }
@@ -152,7 +159,3 @@ authRouter.post('/login', (req, res) => {
 
     }) (req, res);
 })
-
-
-
-export default authRouter
